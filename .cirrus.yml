@@ -34,6 +34,8 @@ task:
         - start /wait "" install.exe /InstallationType=AllUsers /AddToPath=1 /RegisterPython=1 /S /D=%USERPROFILE%\anaconda
         - conda update -yn base conda
         - conda install -y python=%PY_VER%
+        - conda list --show-channel-urls
+        - conda info
         - pip install setuptools-scm
 
     - name: osx
