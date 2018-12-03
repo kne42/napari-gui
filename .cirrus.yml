@@ -33,7 +33,7 @@ task:
         - powershell -Command "curl https://repo.continuum.io/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile install.exe"
         - start /wait "" install.exe /InstallationType=AllUsers /AddToPath=1 /RegisterPython=1 /S /D=%USERPROFILE%\anaconda
         - conda update -yn base conda
-        - conda install -y python=%PY_VER%
+        - conda install -y python=%PY_VER% pip
         - conda list --show-channel-urls
         - conda info
         - pip install setuptools-scm
