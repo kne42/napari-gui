@@ -64,6 +64,7 @@ class Layer(VisualWrapper, ABC):
         self._position = (0, 0)
         self.coordinates = (0, 0)
         self._name = ''
+
         self.events.add(select=Event,
                         deselect=Event,
                         data=Event,
@@ -74,6 +75,8 @@ class Layer(VisualWrapper, ABC):
                         cursor=Event,
                         cursor_size=Event)
         self.name = name
+
+        self._set_mouse_funcs(on_move=None, on_drag=None)
 
     def __str__(self):
         """Return self.name
@@ -154,6 +157,11 @@ class Layer(VisualWrapper, ABC):
     @abstractmethod
     def _get_shape(self):
         raise NotImplementedError()
+
+    def _set_mouse_funcs(self, *, on_move=None, on_drag=None):
+        self._active_mouse_move_func = on_move
+        self._active_mouse_drag_func = on_drag
+        self._active_mouse_drag_gen = None
 
     @property
     def ndim(self):
@@ -368,21 +376,6 @@ class Layer(VisualWrapper, ABC):
                 f.write(svg)
 
         return svg
-
-    def on_mouse_move(self, event):
-        """Called whenever mouse moves over canvas.
-        """
-        return
-
-    def on_mouse_press(self, event):
-        """Called whenever mouse pressed in canvas.
-        """
-        return
-
-    def on_mouse_release(self, event):
-        """Called whenever mouse released in canvas.
-        """
-        return
 
     def on_key_press(self, event):
         """Called whenever key pressed in canvas.

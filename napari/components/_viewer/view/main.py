@@ -1,3 +1,4 @@
+import inspect
 import os.path as osp
 
 from qtpy.QtCore import QCoreApplication, Qt, QSize
@@ -9,7 +10,7 @@ from ..._dims.view import QtDims
 from ..._layers_list.view import QtLayersList
 from ....resources import resources_dir
 from ....util.theme import template
-from ....util.misc import has_clims
+from ....util.misc import ReadOnlyWrapper
 from .controls import QtControls
 from .buttons import QtLayersButtons
 
@@ -149,26 +150,52 @@ class QtViewer(QSplitter):
         themed_stylesheet = template(self.raw_stylesheet, **palette)
         self.setStyleSheet(themed_stylesheet)
 
-    def on_mouse_move(self, event):
-        """Called whenever mouse moves over canvas.
-        """
-        layer = self.viewer.active_layer
-        if layer is not None:
-            layer.on_mouse_move(event)
-
     def on_mouse_press(self, event):
         """Called whenever mouse pressed in canvas.
         """
+        if event.pos is None:
+            return
+
+        layer = self.viewer.active_layer
+        if layer is not None and layer._active_mouse_drag_func is not None:
+            gen = layer._active_mouse_drag_func(layer, event)
+            if inspect.isgeneratorfunction(layer._active_mouse_drag_func):
+                try:
+                    next(gen)
+                    layer._active_mouse_drag_gen = gen
+                    self._persisted_mouse_event = ReadOnlyWrapper(event)
+                except StopIteration:
+                    pass
+
+    def on_mouse_move(self, event):
+        """Called whenever mouse moves over canvas.
+        """
+        if event.pos is None:
+            return
+
         layer = self.viewer.active_layer
         if layer is not None:
-            layer.on_mouse_press(event)
+            if layer._active_mouse_move_func is not None:
+                layer._active_mouse_move_func(layer, event)
+            if layer._active_mouse_drag_gen is not None:
+                self._persisted_mouse_event.__wrapped__ = event
+                try:
+                    next(layer._active_mouse_drag_gen)
+                except StopIteration:
+                    layer._active_mouse_drag_gen = None
+                    self._persisted_mouse_event = None
 
     def on_mouse_release(self, event):
         """Called whenever mouse released in canvas.
         """
         layer = self.viewer.active_layer
-        if layer is not None:
-            layer.on_mouse_release(event)
+        if layer is not None and layer._active_mouse_drag_gen is not None:
+            try:
+                next(layer._active_mouse_drag_gen)
+            except StopIteration:
+                pass
+            layer._active_mouse_drag_gen = None
+            self._persisted_mouse_event = None
 
     def on_key_press(self, event):
         """Called whenever key pressed in canvas.
