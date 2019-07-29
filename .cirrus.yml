@@ -76,6 +76,7 @@ task:
         - conda update -yn base conda
         - conda install -y python=$PY_VER
         - rm install.sh
+        - ulimit -a
 
   install_script:
     # pip >= 19.0 crashes on Linux with Python 3.7
