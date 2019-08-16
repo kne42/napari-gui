@@ -13,7 +13,5 @@ repos:
       name: pytest
       entry: pytest -v
       language: system
-      types: [python]
-      files: 'test_'
       stages: [push]
       always_run: true
