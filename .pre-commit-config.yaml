@@ -16,4 +16,4 @@ repos:
       types: [python]
       files: 'test_'
       stages: [push]
-      always_run: true
+      pass_filenames: false
