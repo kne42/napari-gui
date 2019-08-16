@@ -6,6 +6,7 @@ repos:
       language_version: python3
       require_serial: true
       exclude: 'vendored|_vispy'
+      stages: [commit]
 -   repo: local
     hooks:
     - id: pytest
