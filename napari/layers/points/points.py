@@ -24,10 +24,13 @@ from ..utils.color_transformations import (
     normalize_and_broadcast_colors,
     ColorType,
 )
+from .mouse_bindings import add, select, highlight
 from .points_utils import (
+    create_box,
     dataframe_to_properties,
     guess_continuous,
     map_property,
+    points_to_squares,
 )
 
 
@@ -1090,14 +1093,23 @@ class Points(Layer):
             return
         old_mode = self._mode
 
+        if old_mode == Mode.ADD:
+            self.mouse_drag_callbacks.remove(add)
+        elif old_mode == Mode.SELECT:
+            self.mouse_move_callbacks.remove(highlight)
+            self.mouse_drag_callbacks.remove(select)
+
         if mode == Mode.ADD:
             self.cursor = 'pointing'
             self.interactive = False
             self.help = 'hold <space> to pan/zoom'
+            self.mouse_drag_callbacks.append(add)
         elif mode == Mode.SELECT:
             self.cursor = 'standard'
             self.interactive = False
             self.help = 'hold <space> to pan/zoom'
+            self.mouse_move_callbacks.append(highlight)
+            self.mouse_drag_callbacks.append(select)
         elif mode == Mode.PAN_ZOOM:
             self.cursor = 'standard'
             self.interactive = True
@@ -1464,137 +1476,3 @@ class Points(Layer):
             xml_list.append(element)
 
         return xml_list
-
-    def on_mouse_move(self, event):
-        """Called whenever mouse moves over canvas.
-        """
-        if self._mode == Mode.SELECT:
-            if event.is_dragging:
-                if len(self.selected_data) > 0:
-                    self._move(self.selected_data, self.coordinates)
-                else:
-                    self._is_selecting = True
-                    if self._drag_start is None:
-                        self._drag_start = [
-                            self.coordinates[d] for d in self.dims.displayed
-                        ]
-                    self._drag_box = np.array(
-                        [
-                            self._drag_start,
-                            [self.coordinates[d] for d in self.dims.displayed],
-                        ]
-                    )
-                    self._set_highlight()
-            else:
-                self._set_highlight()
-
-    def on_mouse_press(self, event):
-        """Called whenever mouse pressed in canvas.
-        """
-        shift = 'Shift' in event.modifiers
-
-        if self._mode == Mode.SELECT:
-            if shift and self._value is not None:
-                if self._value in self.selected_data:
-                    self.selected_data = [
-                        x for x in self.selected_data if x != self._value
-                    ]
-                else:
-                    self.selected_data += [self._value]
-            elif self._value is not None:
-                if self._value not in self.selected_data:
-                    self.selected_data = [self._value]
-            else:
-                self.selected_data = []
-            self._set_highlight()
-        elif self._mode == Mode.ADD:
-            self.add(self.coordinates)
-
-    def on_mouse_release(self, event):
-        """Called whenever mouse released in canvas.
-        """
-        self._drag_start = None
-        if self._is_selecting:
-            self._is_selecting = False
-            if len(self._data_view) > 0:
-                selection = points_in_box(
-                    self._drag_box, self._data_view, self._size_view
-                )
-                self.selected_data = self._indices_view[selection]
-            else:
-                self.selected_data = []
-            self._set_highlight(force=True)
-
-
-def create_box(data):
-    """Create the axis aligned interaction box of a list of points
-
-    Parameters
-    ----------
-    data : (N, 2) array
-        Points around which the interaction box is created
-
-    Returns
-    -------
-    box : (4, 2) array
-        Vertices of the interaction box
-    """
-    min_val = data.min(axis=0)
-    max_val = data.max(axis=0)
-    tl = np.array([min_val[0], min_val[1]])
-    tr = np.array([max_val[0], min_val[1]])
-    br = np.array([max_val[0], max_val[1]])
-    bl = np.array([min_val[0], max_val[1]])
-    box = np.array([tl, tr, br, bl])
-    return box
-
-
-def points_to_squares(points, sizes):
-    """Expand points to squares defined by their size
-
-    Parameters
-    ----------
-    points : (N, 2) array
-        Points to be turned into squares
-    sizes : (N,) array
-        Size of each point
-
-    Returns
-    -------
-    rect : (4N, 2) array
-        Vertices of the expanded points
-    """
-    rect = np.concatenate(
-        [
-            points + np.sqrt(2) / 2 * np.array([sizes, sizes]).T,
-            points + np.sqrt(2) / 2 * np.array([sizes, -sizes]).T,
-            points + np.sqrt(2) / 2 * np.array([-sizes, sizes]).T,
-            points + np.sqrt(2) / 2 * np.array([-sizes, -sizes]).T,
-        ],
-        axis=0,
-    )
-    return rect
-
-
-def points_in_box(corners, points, sizes):
-    """Determine which points are in an axis aligned box defined by the corners
-
-    Parameters
-    ----------
-    points : (N, 2) array
-        Points to be checked
-    sizes : (N,) array
-        Size of each point
-
-    Returns
-    -------
-    inside : list
-        Indices of points inside the box
-    """
-    box = create_box(corners)[[0, 2]]
-    rect = points_to_squares(points, sizes)
-    below_top = np.all(box[1] >= rect, axis=1)
-    above_bottom = np.all(rect >= box[0], axis=1)
-    inside = np.logical_and(below_top, above_bottom)
-    inside = np.unique(np.where(inside)[0] % len(points))
-    return list(inside)
